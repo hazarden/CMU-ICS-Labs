@@ -1,5 +1,5 @@
 /*
- * CS:APP Data Lab
+ * CS:APP Data Lab,right?
  *
  * <Please put your name and userid here>
  *
@@ -139,7 +139,8 @@ NOTES:
  *   Rating: 1
  */
 int bitAnd(int x, int y) {
-    return ~(~x | ~y);
+    
+    return 0;
 }
 /*
  * getByte - Extract byte n from word x
