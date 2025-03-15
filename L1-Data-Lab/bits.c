@@ -140,7 +140,7 @@ NOTES:
  */
 int bitAnd(int x, int y) {
     
-    return 0;
+    return ~(~x|~y);
 }
 /*
  * getByte - Extract byte n from word x
@@ -168,13 +168,14 @@ int getByte(int x, int n) {
  */
 int logicalShift(int x, int n) {
     /**
-     * 1. (0x7FFFFFFF >> (n + (-1)) construct 0..0111..111 to make first n bit be 0.
-     * 2. (n + (-1) + !n) = 0 if n = 0,
-     *                    = n-1 if n != 0.
-     * 3. << (!n) | 0x1 no effect if n != 0,
-     *                  = shift left and add 1 if n = 0.
+     * 1. Shift right for 1 if n!=0
+     * 2. Mask the left part if n!=0
+     * 3. Shift right for n-1 if n!=0
      */
-    return (x >> n) & (0x7FFFFFFF >> (n + (-1) + !n) << (!n) | 0x1);
+    int a = x >> n;
+    int b = ~(0x1<<31>>n<<1);
+    int c = b & a;
+    return c;
 }
 /*
  * bitCount - returns count of number of 1's in word
@@ -187,16 +188,16 @@ int bitCount(int x) {
     /**
      * Refer to http://stackoverflow.com/questions/3815165/how-to-implement-bitcount-using-only-bitwise-operators
      */
-    int a = 0;
-
-    a = (x & 0x55555555) + ((x >> 1) & 0x55555555);
-    a = (a & 0x33333333) + ((a >> 2) & 0x33333333);
-    a = (a & 0x0F0F0F0F) + ((a >> 4) & 0x0F0F0F0F);
-    a = (a & 0x00FF00FF) + ((a >> 8) & 0x00FF00FF);
-    a = (a & 0x0000FFFF) + ((a >> 16)& 0x0000FFFF);
-
-    return a;
+    int a = 0x55+(0x55<<8)+(0x55<<16)+(0x55<<24);
+    int b = 0x33+(0x33<<8)+(0x33<<16)+(0x33<<24);   
+    int c = 0x0F+(0x0F<<8)+(0x0F<<16)+(0x0F<<24);
+    x = (x&a)+((x>>1)&a);
+    x = (x&b)+((x>>2)&b);
+    x = (x&c)+((x>>4)&c);
+    x = (x+(x>>8)+(x>>16)+(x>>24))&0xFF;
+    return x;
 }
+    
 /*
  * bang - Compute !x without using !
  *   Examples: bang(3) = 0, bang(0) = 1
@@ -205,13 +206,13 @@ int bitCount(int x) {
  *   Rating: 4
  */
 int bang(int x) {
-    x = ( x >> 16 ) | (x & ((0xFF << 8) + 0xFF));
-    x = ( x >> 8 ) | (x & 0xFF);
-    x = ( x >> 4 ) | (x & 0xF);
-    x = ( x >> 2 ) | (x & 0x3);
-    x = ( x >> 1) | (x & 0x1);
-
-    return (~x) & 1;
+   int a = 0;
+   a = x | (x >> 16);
+   a = a | (a >> 8);
+    a = a | (a >> 4);
+    a = a | (a >> 2);
+    a = a | (a >> 1);
+    return (~a)&0x1;
 }
 /*
  * tmin - return minimum two's complement integer
@@ -234,7 +235,8 @@ int tmin(void) {
  */
 int fitsBits(int x, int n) {
     // x >> 31 == 1 if x is positive, just a mask
-    return !((~x & ((x >> 31) >> 31)  + ((x & ~(x >> 31) >> 31))) >> (n + (-1)));
+    //return !((~x & ((x >> 31) >> 31)  + ((x & ~(x >> 31) >> 31))) >> (n + (-1)));
+    return !(x ^ ((x << (32 + ~n + 1)) >> (32 + ~n + 1)));
 }
 /*
  * divpwr2 - Compute x/(2^n), for 0 <= n <= 30
@@ -246,7 +248,7 @@ int fitsBits(int x, int n) {
  */
 int divpwr2(int x, int n) {
     // if x is negative, make x exceed the perfect 2-power.
-    return (x + ((x >> 31) & ((1 << n) + ~0))) >> n;
+    return (x + (((x>>31)&1)<<n)+(x>>31)) >> n;
 }
 /*
  * negate - return -x
@@ -267,7 +269,8 @@ int negate(int x) {
  */
 int isPositive(int x) {
     // &(!!x) let isPositive(0) = 0
-    return !(x >> 31) & (!!x);
+    //return !(x >> 31) & (!!x);
+    return !!(x & ~(x>>31));
 }
 /*
  * isLessOrEqual - if x <= y  then return 1, else return 0
@@ -280,9 +283,13 @@ int isLessOrEqual(int x, int y) {
     // if x = 0x80000000, ~x+1 becomes itself. => if x = 0x80000000, return 1
     // if y = 0x80000000, ~y+1 becomes itself. simple_check = 1, ok actually
 
-    int simple_check = (((~x + 1) + y) >> 31 & 0x1); // = 1 if x > y
-    int is_bound = (( (x & (1 << 31)) ^ (y & (1 << 31)) ) >> 31) & 1;
-    return (!is_bound & !simple_check) | (is_bound & ( (x & (1 << 31)) >> 31 ) );
+    //int simple_check = (((~x + 1) + y) >> 31 & 0x1); // = 1 if x > y
+    //int is_bound = (( (x & (1 << 31)) ^ (y & (1 << 31)) ) >> 31) & 1;
+    //return (!is_bound & !simple_check) | (is_bound & ( (x & (1 << 31)) >> 31 ) );
+    int c=y+~x+1;
+    int d=x>>31&0x1;
+    int e=y>>31&0x1;
+    return ((d^e)&d )| ((!(d^e))&(!(c>>31&0x1)));
 }
 /*
  * ilog2 - return floor(log base 2 of x), where x > 0
@@ -317,9 +324,12 @@ int ilog2(int x) {
  */
 unsigned float_neg(unsigned uf) {
     // deal with NaN
-    if (uf != 0x7F800000 && uf != 0xFF800000 && (uf & 0x7F800000) == 0x7F800000) {
+    if ((uf & 0x7FFFFFFF) > 0x7F800000) {
         return uf;
     }
+    /*if (uf != 0x7F800000 && uf != 0xFF800000 && (uf & 0x7F800000) == 0x7F800000) {
+        return uf;
+    }*/
 
     return uf ^ 0x80000000;
 }
@@ -333,33 +343,49 @@ unsigned float_neg(unsigned uf) {
  *   Rating: 4
  */
 unsigned float_i2f(int x) {
-    unsigned sign = 0x0, e = 0x0, f = 0x0;
-
-    // judge sign
-    if (x > 0) {
-        sign = 0x0;
-    } else if (x < 0) {
-        sign = 0x1;
-        x = ~x + 1;
-    } else { // x = 0
-        return x;
+    int exp = 0;
+    int flo = x;
+    int s = 0;
+    int tmp = 0;
+    int m = 0;
+    int m1 = 0;
+    int n = 0;
+    int n1 = 0;
+    if (x == 0) {
+        return 0;
     }
-
-    e = 0;
-    while (x != 0) {
-        f += (x & 0x1) << e;
-        e++;
-        // logical shift by 1
-        x = (x >> 1) & (0x7FFFFFFF >> (1 + (-1) + !1) << (!1) | 0x1);
+    if (x == 0x80000000) {
+        return 0xCF000000;
     }
-    e = e - 1;
-
-    f = f & ~(0x1 << e);
-    if (e > 23) {
-        f = f >> (e - 23);
+    if (x < 0) {
+        s = 0x80000000;
+        x = -x;
     }
-    e = e + 127;
-    return (sign << 31) + (e << 23) + f;
+    tmp = x;
+    while(tmp>>1) {
+        exp++;
+        tmp = tmp >> 1;
+    }
+    if (exp > 23) {
+        m = 1 << (exp-23);
+        m1 = m >> 1;
+        n=x & (m1 - 1);
+        n1=x&m1;
+        flo = x >> (exp - 23);
+        if (n1){
+            if (n ||(flo & 1)) {
+                flo++;
+                if (flo == 0x1000000) {
+                    flo = 0;
+                    exp++;
+                }
+            }
+        }
+    }
+    else {
+        flo = x << (23 - exp);
+    }
+    return s + ((exp + 127) << 23) + (flo & 0x7FFFFF);
 }
 /*
  * float_twice - Return bit-level equivalent of expression 2*f for
@@ -373,6 +399,10 @@ unsigned float_i2f(int x) {
  *   Rating: 4
  */
 unsigned float_twice(unsigned uf) {
+    /*if ((uf & 0x7FFFFFFF) > 0x7F800000) {
+        return uf;
+    }
+    return(uf + 0x800000);*/
     unsigned sign = (uf >> 31) & 0x1;
     unsigned e = (uf >> 23) & 0xFF;
     unsigned f = uf & 0x7FFFFF;
