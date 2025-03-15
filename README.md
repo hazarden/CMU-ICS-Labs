@@ -33,7 +33,7 @@ sudo apt install gcc-multilib
 
 ## Progress
 
-- [y] Lab 1 - Data Lab
+- [x] Lab 1 - Data Lab
 - [ ] Lab 2 - Bomb Lab
 - [ ] Lab 3 - Attack Lab
 - [ ] Lab 4 - Cache Lab
